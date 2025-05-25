@@ -300,9 +300,122 @@
         </div>
     </div>
 </div>
+
+<!-- Модальное окно деталей заказа -->
+<div id="order-detail-modal" class="fixed inset-0 z-50 hidden">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+        
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+        
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900" id="order-detail-title">
+                        Заказ #123
+                    </h3>
+                    <button onclick="closeOrderDetailModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div id="order-detail-content" class="space-y-6">
+                    <!-- Контент будет загружен динамически -->
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="editCurrentOrder()" class="btn btn-primary mr-3" id="edit-order-btn">
+                    <i class="fas fa-edit mr-2"></i>
+                    Редактировать
+                </button>
+                <button type="button" onclick="closeOrderDetailModal()" class="btn btn-outline">
+                    Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно добавления услуги -->
+<div id="add-service-modal" class="fixed inset-0 z-50 hidden">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+        
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+        
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">
+                        Добавить услугу в заказ
+                    </h3>
+                    <button onclick="closeAddServiceModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="add-service-form" class="space-y-4">
+                    <!-- Услуга -->
+                    <div>
+                        <label for="service-select" class="block text-sm font-medium text-gray-700">Услуга *</label>
+                        <select id="service-select" name="service" required class="form-select">
+                            <option value="">Выберите услугу</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Цена -->
+                    <div>
+                        <label for="service-price" class="block text-sm font-medium text-gray-700">Цена *</label>
+                        <input type="number" id="service-price" name="price" required step="0.01" min="0" 
+                               class="form-input" placeholder="0.00">
+                        <p class="mt-1 text-sm text-gray-500">Рекомендуемая цена будет заполнена автоматически</p>
+                    </div>
+                    
+                    <!-- Продавец -->
+                    <div>
+                        <label for="service-seller" class="block text-sm font-medium text-gray-700">Продавец *</label>
+                        <select id="service-seller" name="seller" required class="form-select">
+                            <option value="">Выберите продавца</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Информация о услуге -->
+                    <div id="service-info" class="hidden p-3 bg-gray-50 rounded-lg">
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <span class="text-gray-600">Себестоимость:</span>
+                                <div class="font-medium" id="service-cost">—</div>
+                            </div>
+                            <div>
+                                <span class="text-gray-600">Рекомендуемая цена:</span>
+                                <div class="font-medium" id="service-recommended-price">—</div>
+                            </div>
+                        </div>
+                        <div class="mt-2 pt-2 border-t border-gray-200">
+                            <span class="text-gray-600">Маржа:</span>
+                            <span class="font-medium" id="service-margin">—</span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="addServiceToOrder()" class="btn btn-primary">
+                    <i class="fas fa-plus mr-2"></i>
+                    Добавить услугу
+                </button>
+                <button type="button" onclick="closeAddServiceModal()" class="btn btn-outline mr-3">
+                    Отмена
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/components/modal.js' %}"></script>
 <script src="{% static 'js/pages/orders.js' %}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
