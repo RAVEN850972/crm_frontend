@@ -1,0 +1,317 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Расчет зарплат - CRM{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Заголовок и действия -->
+    <div class="md:flex md:items-center md:justify-between mb-6">
+        <div class="flex-1 min-w-0">
+            <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                Расчет зарплат
+            </h1>
+            <p class="mt-1 text-sm text-gray-500">
+                Автоматический расчет заработной платы сотрудников
+            </p>
+        </div>
+        <div class="mt-4 flex md:mt-0 md:ml-4 space-x-2">
+            <button onclick="exportSalaries()" class="btn btn-outline">
+                <i class="fas fa-download mr-2"></i>
+                Экспорт
+            </button>
+            <button onclick="printSalaries()" class="btn btn-outline">
+                <i class="fas fa-print mr-2"></i>
+                Печать
+            </button>
+            <button onclick="massPayment()" class="btn btn-success" id="mass-payment-btn" disabled>
+                <i class="fas fa-credit-card mr-2"></i>
+                Массовая выплата
+            </button>
+        </div>
+    </div>
+
+    <!-- Фильтры периода -->
+    <div class="card mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label for="period-start" class="block text-sm font-medium text-gray-700 mb-1">
+                    Начало периода
+                </label>
+                <input type="date" 
+                       id="period-start" 
+                       class="form-input"
+                       value="">
+            </div>
+            
+            <div>
+                <label for="period-end" class="block text-sm font-medium text-gray-700 mb-1">
+                    Конец периода
+                </label>
+                <input type="date" 
+                       id="period-end" 
+                       class="form-input"
+                       value="">
+            </div>
+            
+            <div>
+                <label for="role-filter" class="block text-sm font-medium text-gray-700 mb-1">
+                    Роль
+                </label>
+                <select id="role-filter" class="form-select">
+                    <option value="">Все роли</option>
+                    <option value="manager">Менеджеры</option>
+                    <option value="installer">Монтажники</option>
+                    <option value="owner">Владельцы</option>
+                </select>
+            </div>
+            
+            <div class="flex items-end">
+                <button onclick="calculateSalaries()" class="btn btn-primary w-full">
+                    <i class="fas fa-calculator mr-2"></i>
+                    Рассчитать
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Сводная информация -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6" id="summary-cards" style="display: none;">
+        <div class="card">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-users text-white"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Сотрудников</p>
+                    <p class="text-2xl font-bold text-gray-900" id="total-employees">—</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-ruble-sign text-white"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Общая сумма</p>
+                    <p class="text-2xl font-bold text-green-600" id="total-amount">—</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-chart-line text-white"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Средняя ЗП</p>
+                    <p class="text-2xl font-bold text-purple-600" id="average-salary">—</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-percentage text-white"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">К выручке</p>
+                    <p class="text-2xl font-bold text-yellow-600" id="salary-percentage">—</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Таблица расчетов -->
+    <div class="card">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-medium text-gray-900">Детальный расчет</h3>
+            <div class="flex items-center space-x-2">
+                <button onclick="selectAll()" class="btn btn-sm btn-outline">
+                    <i class="fas fa-check-square mr-1"></i>
+                    Выбрать все
+                </button>
+                <button onclick="deselectAll()" class="btn btn-sm btn-outline">
+                    <i class="fas fa-square mr-1"></i>
+                    Снять выбор
+                </button>
+            </div>
+        </div>
+
+        <!-- Загрузка -->
+        <div id="loading-state" class="text-center py-12">
+            <div class="flex items-center justify-center">
+                <div class="spinner mr-3"></div>
+                Загрузка данных...
+            </div>
+        </div>
+
+        <!-- Пустое состояние -->
+        <div id="empty-state" class="hidden text-center py-12">
+            <div class="empty-state">
+                <i class="fas fa-calculator empty-state-icon"></i>
+                <h3 class="empty-state-title">Выберите период для расчета</h3>
+                <p class="empty-state-description">
+                    Укажите даты начала и окончания периода, затем нажмите "Рассчитать"
+                </p>
+            </div>
+        </div>
+
+        <!-- Таблица -->
+        <div id="salary-table" class="hidden overflow-x-auto">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th class="w-12">
+                            <input type="checkbox" 
+                                   id="select-all-checkbox" 
+                                   class="form-checkbox"
+                                   onchange="toggleSelectAll()">
+                        </th>
+                        <th>Сотрудник</th>
+                        <th>Роль</th>
+                        <th>Базовая ставка</th>
+                        <th>Бонусы</th>
+                        <th>Штрафы</th>
+                        <th>Итого к выплате</th>
+                        <th class="text-right">Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="salary-table-body">
+                    <!-- Данные будут загружены через JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно детального расчета -->
+<div id="salary-detail-modal" class="fixed inset-0 z-50 hidden">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+        
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+        
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900" id="salary-detail-title">
+                        Детальный расчет зарплаты
+                    </h3>
+                    <button onclick="closeSalaryDetailModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div id="salary-detail-content">
+                    <!-- Контент будет загружен через JS -->
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="processPayment()" class="btn btn-success">
+                    <i class="fas fa-credit-card mr-2"></i>
+                    Выплатить
+                </button>
+                <button type="button" onclick="closeSalaryDetailModal()" class="btn btn-outline mr-3">
+                    Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно массовой выплаты -->
+<div id="mass-payment-modal" class="fixed inset-0 z-50 hidden">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+        
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+        
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">
+                        Массовая выплата зарплат
+                    </h3>
+                    <button onclick="closeMassPaymentModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600 mb-3">
+                        Будет произведена выплата зарплаты выбранным сотрудникам:
+                    </p>
+                    
+                    <div class="bg-gray-50 rounded-lg p-3 mb-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium text-gray-700">
+                                Количество сотрудников:
+                            </span>
+                            <span class="font-bold" id="mass-payment-count">0</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="text-sm font-medium text-gray-700">
+                                Общая сумма:
+                            </span>
+                            <span class="font-bold text-green-600" id="mass-payment-total">0 ₽</span>
+                        </div>
+                    </div>
+                    
+                    <div class="border border-yellow-200 bg-yellow-50 rounded-lg p-3">
+                        <div class="flex">
+                            <i class="fas fa-exclamation-triangle text-yellow-400 mr-2 mt-0.5"></i>
+                            <p class="text-sm text-yellow-800">
+                                Это действие создаст транзакции расходов и отметит зарплаты как выплаченные. 
+                                Отменить операцию будет невозможно.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="payment-comment" class="block text-sm font-medium text-gray-700 mb-2">
+                        Комментарий к выплате
+                    </label>
+                    <textarea id="payment-comment" 
+                              rows="3" 
+                              class="form-textarea"
+                              placeholder="Выплата зарплаты за период..."></textarea>
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" onclick="confirmMassPayment()" class="btn btn-danger">
+                    <i class="fas fa-credit-card mr-2"></i>
+                    Подтвердить выплату
+                </button>
+                <button type="button" onclick="closeMassPaymentModal()" class="btn btn-outline mr-3">
+                    Отмена
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/pages/salary-calculation.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        initSalaryCalculationPage();
+    });
+</script>
+{% endblock %}

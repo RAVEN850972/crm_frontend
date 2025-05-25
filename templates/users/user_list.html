@@ -1,0 +1,375 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Пользователи - CRM{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Заголовок и действия -->
+    <div class="md:flex md:items-center md:justify-between mb-6">
+        <div class="flex-1 min-w-0">
+            <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                Пользователи
+            </h1>
+            <p class="mt-1 text-sm text-gray-500">
+                Управление сотрудниками и их правами доступа
+            </p>
+        </div>
+        <div class="mt-4 flex md:mt-0 md:ml-4 space-x-2">
+            <button onclick="openCreateUserModal()" class="btn btn-primary">
+                <i class="fas fa-user-plus mr-2"></i>
+                Новый сотрудник
+            </button>
+            <button onclick="exportUsers()" class="btn btn-outline">
+                <i class="fas fa-download mr-2"></i>
+                Экспорт
+            </button>
+        </div>
+    </div>
+
+    <!-- Статистика команды -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div class="card card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-users text-white"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Всего сотрудников</p>
+                    <p class="text-2xl font-bold text-gray-900" id="stats-total">—</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-user-check text-white"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Активных</p>
+                    <p class="text-2xl font-bold text-gray-900" id="stats-active">—</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-chart-line text-white"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Менеджеров</p>
+                    <p class="text-2xl font-bold text-gray-900" id="stats-managers">—</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
+                        <i class="fas fa-tools text-white"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Монтажников</p>
+                    <p class="text-2xl font-bold text-gray-900" id="stats-installers">—</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Фильтры и поиск -->
+    <div class="card mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- Поиск -->
+            <div class="md:col-span-2">
+                <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Поиск</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-search h-5 w-5 text-gray-400"></i>
+                    </div>
+                    <input type="text" 
+                           id="search" 
+                           placeholder="Поиск по имени, email или телефону..." 
+                           class="form-input pl-10">
+                </div>
+            </div>
+
+            <!-- Фильтр по роли -->
+            <div>
+                <label for="role-filter" class="block text-sm font-medium text-gray-700 mb-1">Роль</label>
+                <select id="role-filter" class="form-select">
+                    <option value="">Все роли</option>
+                    <option value="owner">Владелец</option>
+                    <option value="manager">Менеджер</option>
+                    <option value="installer">Монтажник</option>
+                </select>
+            </div>
+
+            <!-- Фильтр по статусу -->
+            <div>
+                <label for="status-filter" class="block text-sm font-medium text-gray-700 mb-1">Статус</label>
+                <select id="status-filter" class="form-select">
+                    <option value="">Все статусы</option>
+                    <option value="active">Активный</option>
+                    <option value="inactive">Неактивный</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Кнопки действий -->
+        <div class="mt-4 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <button onclick="clearFilters()" class="btn btn-sm btn-outline">
+                    <i class="fas fa-times mr-1"></i>
+                    Очистить фильтры
+                </button>
+                <span class="text-sm text-gray-500" id="results-count">
+                    Найдено: <span id="total-count">—</span> сотрудников
+                </span>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <label class="text-sm text-gray-700">Показать:</label>
+                <select id="page-size" class="form-select text-sm">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Таблица пользователей -->
+    <div class="card">
+        <div class="overflow-x-auto">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th class="sortable cursor-pointer" data-sort="first_name">
+                            <div class="flex items-center">
+                                Сотрудник
+                                <i class="fas fa-sort ml-1 text-gray-400"></i>
+                            </div>
+                        </th>
+                        <th class="sortable cursor-pointer" data-sort="role">
+                            <div class="flex items-center">
+                                Роль
+                                <i class="fas fa-sort ml-1 text-gray-400"></i>
+                            </div>
+                        </th>
+                        <th>Контакты</th>
+                        <th>Статистика</th>
+                        <th class="sortable cursor-pointer" data-sort="last_login">
+                            <div class="flex items-center">
+                                Последний вход
+                                <i class="fas fa-sort ml-1 text-gray-400"></i>
+                            </div>
+                        </th>
+                        <th>Статус</th>
+                        <th class="text-right">Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="users-table-body">
+                    <!-- Загрузка -->
+                    <tr>
+                        <td colspan="7" class="text-center py-8">
+                            <div class="flex items-center justify-center">
+                                <div class="spinner mr-3"></div>
+                                Загрузка пользователей...
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Пагинация -->
+    <div class="mt-6">
+        <nav id="pagination" class="flex items-center justify-between">
+            <div class="flex-1 flex justify-between sm:hidden">
+                <button id="prev-mobile" class="btn btn-outline">Предыдущая</button>
+                <button id="next-mobile" class="btn btn-outline">Следующая</button>
+            </div>
+            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        Показано <span id="showing-from">1</span> - <span id="showing-to">20</span> из <span id="showing-total">0</span> результатов
+                    </p>
+                </div>
+                <div>
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" id="pagination-buttons">
+                        <!-- Кнопки пагинации будут добавлены динамически -->
+                    </nav>
+                </div>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Пустое состояние -->
+    <div id="empty-state" class="hidden text-center py-12">
+        <div class="empty-state">
+            <i class="fas fa-users empty-state-icon"></i>
+            <h3 class="empty-state-title">Пользователи не найдены</h3>
+            <p class="empty-state-description">
+                Попробуйте изменить параметры поиска или добавьте первого сотрудника
+            </p>
+            <button onclick="openCreateUserModal()" class="btn btn-primary">
+                <i class="fas fa-user-plus mr-2"></i>
+                Добавить сотрудника
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно создания/редактирования пользователя -->
+<div id="user-modal" class="fixed inset-0 z-50 hidden">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+        
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+        
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900" id="user-modal-title">
+                        Новый сотрудник
+                    </h3>
+                    <button onclick="closeUserModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="user-form" class="space-y-4">
+                    <!-- Имя -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="first-name" class="block text-sm font-medium text-gray-700">Имя *</label>
+                            <input type="text" id="first-name" name="first_name" required 
+                                   class="form-input" placeholder="Иван">
+                        </div>
+                        <div>
+                            <label for="last-name" class="block text-sm font-medium text-gray-700">Фамилия *</label>
+                            <input type="text" id="last-name" name="last_name" required 
+                                   class="form-input" placeholder="Иванов">
+                        </div>
+                    </div>
+                    
+                    <!-- Username -->
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700">Логин *</label>
+                        <input type="text" id="username" name="username" required 
+                               class="form-input" placeholder="ivanov">
+                        <p class="mt-1 text-sm text-gray-500">Используется для входа в систему</p>
+                    </div>
+                    
+                    <!-- Email -->
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                        <input type="email" id="email" name="email" 
+                               class="form-input" placeholder="ivanov@company.ru">
+                    </div>
+                    
+                    <!-- Телефон -->
+                    <div>
+                        <label for="phone" class="block text-sm font-medium text-gray-700">Телефон</label>
+                        <input type="tel" id="phone" name="phone" 
+                               class="form-input" placeholder="+7 (900) 123-45-67">
+                    </div>
+                    
+                    <!-- Роль -->
+                    <div>
+                        <label for="role" class="block text-sm font-medium text-gray-700">Роль *</label>
+                        <select id="role" name="role" required class="form-select">
+                            <option value="">Выберите роль</option>
+                            <option value="manager">Менеджер</option>
+                            <option value="installer">Монтажник</option>
+                        </select>
+                        <p class="mt-1 text-sm text-gray-500">Определяет права доступа в системе</p>
+                    </div>
+                    
+                    <!-- Пароль (только при создании) -->
+                    <div id="password-fields">
+                        <div>
+                            <label for="password" class="block text-sm font-medium text-gray-700">Пароль *</label>
+                            <input type="password" id="password" name="password" 
+                                   class="form-input" placeholder="Минимум 8 символов">
+                        </div>
+                        <div>
+                            <label for="password-confirm" class="block text-sm font-medium text-gray-700">Подтверждение пароля *</label>
+                            <input type="password" id="password-confirm" name="password_confirm" 
+                                   class="form-input" placeholder="Повторите пароль">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" id="user-submit" class="btn btn-primary">
+                    <span class="submit-text">Создать</span>
+                    <span class="loading-spinner hidden ml-2">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                </button>
+                <button type="button" onclick="closeUserModal()" class="btn btn-outline mr-3">
+                    Отмена
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно деталей пользователя -->
+<div id="user-detail-modal" class="fixed inset-0 z-50 hidden">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+        
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+        
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900" id="user-detail-title">
+                        Профиль сотрудника
+                    </h3>
+                    <button onclick="closeUserDetailModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div id="user-detail-content">
+                    <!-- Контент будет загружен динамически -->
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" id="edit-user-btn" class="btn btn-primary mr-3">
+                    <i class="fas fa-edit mr-2"></i>
+                    Редактировать
+                </button>
+                <button type="button" onclick="closeUserDetailModal()" class="btn btn-outline">
+                    Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/pages/users.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        initUsersPage();
+    });
+</script>
+{% endblock %}
