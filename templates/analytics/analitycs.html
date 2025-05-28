@@ -1,0 +1,331 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Аналитика - CRM{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Заголовок и фильтры -->
+    <div class="md:flex md:items-center md:justify-between mb-6">
+        <div class="flex-1 min-w-0">
+            <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                Аналитика бизнеса
+            </h1>
+            <p class="mt-1 text-sm text-gray-500">
+                Комплексный анализ эффективности и прогнозирование
+            </p>
+        </div>
+        <div class="mt-4 flex md:mt-0 md:ml-4 space-x-2">
+            <select id="period-filter" class="form-select text-sm">
+                <option value="7">7 дней</option>
+                <option value="30" selected>30 дней</option>
+                <option value="90">3 месяца</option>
+                <option value="180">6 месяцев</option>
+                <option value="365">Год</option>
+            </select>
+            <button onclick="refreshAnalytics()" class="btn btn-outline btn-sm" id="refresh-btn">
+                <i class="fas fa-sync-alt mr-2"></i>
+                Обновить
+            </button>
+            <button onclick="exportReport()" class="btn btn-primary btn-sm">
+                <i class="fas fa-download mr-2"></i>
+                Экспорт отчета
+            </button>
+        </div>
+    </div>
+
+    <!-- Ключевые метрики -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div class="card card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-chart-line text-white text-lg"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Общая выручка</p>
+                    <p class="text-2xl font-bold text-gray-900" id="total-revenue">—</p>
+                    <p class="text-sm" id="revenue-change">—</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-percentage text-white text-lg"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Маржинальность</p>
+                    <p class="text-2xl font-bold text-gray-900" id="margin-percentage">—</p>
+                    <p class="text-sm" id="margin-change">—</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-shopping-cart text-white text-lg"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Средний чек</p>
+                    <p class="text-2xl font-bold text-gray-900" id="average-check">—</p>
+                    <p class="text-sm" id="check-change">—</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-hover">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-user-friends text-white text-lg"></i>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-500">Новых клиентов</p>
+                    <p class="text-2xl font-bold text-gray-900" id="new-clients">—</p>
+                    <p class="text-sm" id="clients-change">—</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Воронка продаж -->
+    <div class="card mb-6">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-medium text-gray-900">Воронка продаж</h3>
+            <div class="text-sm text-gray-500">
+                Конверсия: <span id="conversion-rate" class="font-medium text-blue-600">—</span>
+            </div>
+        </div>
+        
+        <div class="space-y-4" id="sales-funnel">
+            <!-- Воронка будет заполнена JS -->
+        </div>
+    </div>
+
+    <!-- Графики и диаграммы -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Динамика выручки -->
+        <div class="card">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Динамика выручки</h3>
+                <select id="revenue-chart-type" class="form-select text-sm">
+                    <option value="daily">По дням</option>
+                    <option value="weekly">По неделям</option>
+                    <option value="monthly" selected>По месяцам</option>
+                </select>
+            </div>
+            <div class="chart-container h-64">
+                <canvas id="revenue-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Структура услуг -->
+        <div class="card">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Структура услуг</h3>
+            <div class="chart-container h-64">
+                <canvas id="services-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Источники клиентов -->
+        <div class="card">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Источники клиентов</h3>
+            <div class="chart-container h-64">
+                <canvas id="sources-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Эффективность менеджеров -->
+        <div class="card">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Эффективность менеджеров</h3>
+            <div class="chart-container h-64">
+                <canvas id="managers-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Детальная аналитика -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <!-- Топ услуги -->
+        <div class="card">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Топ услуги</h3>
+            <div id="top-services" class="space-y-3">
+                <!-- Загрузка -->
+                <div class="animate-pulse">
+                    <div class="h-4 bg-gray-200 rounded mb-2"></div>
+                    <div class="h-4 bg-gray-200 rounded mb-2"></div>
+                    <div class="h-4 bg-gray-200 rounded"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Топ клиенты -->
+        <div class="card">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Топ клиенты</h3>
+            <div id="top-clients" class="space-y-3">
+                <!-- Загрузка -->
+                <div class="animate-pulse">
+                    <div class="h-4 bg-gray-200 rounded mb-2"></div>
+                    <div class="h-4 bg-gray-200 rounded mb-2"></div>
+                    <div class="h-4 bg-gray-200 rounded"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Операционные метрики -->
+        <div class="card">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Операционные метрики</h3>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-600">Среднее время обработки лида</span>
+                    <span class="font-medium" id="lead-processing-time">—</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-600">Время от заказа до монтажа</span>
+                    <span class="font-medium" id="order-to-install-time">—</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-600">Среднее время монтажа</span>
+                    <span class="font-medium" id="installation-time">—</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-600">NPS клиентов</span>
+                    <span class="font-medium text-green-600" id="nps-score">—</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-600">Повторные заказы</span>
+                    <span class="font-medium" id="repeat-orders">—</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Прогнозы и планирование -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Прогноз на следующий месяц -->
+        <div class="card">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Прогноз на следующий месяц</h3>
+            <div class="space-y-4">
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-medium text-blue-900">Ожидаемая выручка</span>
+                        <span class="text-lg font-bold text-blue-900" id="forecast-revenue">—</span>
+                    </div>
+                    <div class="text-xs text-blue-700">
+                        Диапазон: <span id="forecast-range">—</span>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-gray-900" id="forecast-orders">—</div>
+                        <div class="text-sm text-gray-500">Заказов</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-gray-900" id="forecast-clients">—</div>
+                        <div class="text-sm text-gray-500">Новых клиентов</div>
+                    </div>
+                </div>
+                
+                <div class="pt-4 border-t border-gray-200">
+                    <h4 class="font-medium text-gray-900 mb-2">Загрузка команды</h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Менеджеры</span>
+                            <span id="managers-load" class="font-medium">—</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Монтажники</span>
+                            <span id="installers-load" class="font-medium">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Рекомендации -->
+        <div class="card">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Рекомендации</h3>
+            <div id="recommendations" class="space-y-3">
+                <!-- Рекомендации будут загружены через JS -->
+                <div class="animate-pulse">
+                    <div class="h-4 bg-gray-200 rounded mb-2"></div>
+                    <div class="h-4 bg-gray-200 rounded mb-2"></div>
+                    <div class="h-4 bg-gray-200 rounded"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI и цели -->
+    <div class="card">
+        <h3 class="text-lg font-medium text-gray-900 mb-6">KPI и выполнение целей</h3>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full">
+                <thead>
+                    <tr class="border-b border-gray-200">
+                        <th class="text-left py-3 text-sm font-medium text-gray-500">Показатель</th>
+                        <th class="text-right py-3 text-sm font-medium text-gray-500">Факт</th>
+                        <th class="text-right py-3 text-sm font-medium text-gray-500">План</th>
+                        <th class="text-right py-3 text-sm font-medium text-gray-500">Выполнение</th>
+                        <th class="text-center py-3 text-sm font-medium text-gray-500">Статус</th>
+                    </tr>
+                </thead>
+                <tbody id="kpi-table" class="divide-y divide-gray-200">
+                    <!-- KPI данные будут загружены через JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно с детальной аналитикой -->
+<div id="analytics-modal" class="fixed inset-0 z-50 hidden">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+        
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+        
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                        Детальная аналитика
+                    </h3>
+                    <button onclick="closeAnalyticsModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div id="modal-content" class="mt-4">
+                    <!-- Контент модального окна -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/pages/analytics.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        initAnalyticsPage();
+    });
+</script>
+{% endblock %}

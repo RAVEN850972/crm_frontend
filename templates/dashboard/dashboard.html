@@ -1,0 +1,348 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Дашборд - CRM{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Заголовок -->
+    <div class="md:flex md:items-center md:justify-between mb-6">
+        <div class="flex-1 min-w-0">
+            <h1 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                {% if user.role == 'owner' %}
+                    Обзор бизнеса
+                {% elif user.role == 'manager' %}
+                    Мои продажи
+                {% else %}
+                    Мое расписание
+                {% endif %}
+            </h1>
+            <p class="mt-1 text-sm text-gray-500">
+                Данные обновлены: <span id="last-updated">загрузка...</span>
+            </p>
+        </div>
+        <div class="mt-4 flex md:mt-0 md:ml-4 space-x-2">
+            {% if user.role != 'installer' %}
+            <button onclick="openCreateClientModal()" class="btn btn-primary">
+                <i class="fas fa-user-plus mr-2"></i>
+                Новый клиент
+            </button>
+            <button onclick="openCreateOrderModal()" class="btn btn-success">
+                <i class="fas fa-plus mr-2"></i>
+                Новый заказ
+            </button>
+            {% endif %}
+            <button onclick="refreshDashboard()" class="btn btn-outline" id="refresh-btn">
+                <i class="fas fa-sync-alt mr-2"></i>
+                Обновить
+            </button>
+        </div>
+    </div>
+
+    <!-- Метрики владельца -->
+    {% if user.role == 'owner' %}
+    <div id="owner-dashboard">
+        <!-- Финансовые метрики -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div class="card card-hover">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                            <i class="fas fa-ruble-sign text-white"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">Доходы за месяц</p>
+                        <p class="text-2xl font-bold text-gray-900" id="monthly-income">—</p>
+                        <p class="text-sm text-green-600" id="income-change">—</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-hover">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-red-500 rounded-md flex items-center justify-center">
+                            <i class="fas fa-arrow-down text-white"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">Расходы за месяц</p>
+                        <p class="text-2xl font-bold text-gray-900" id="monthly-expenses">—</p>
+                        <p class="text-sm text-red-600" id="expenses-change">—</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-hover">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                            <i class="fas fa-chart-line text-white"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">Прибыль за месяц</p>
+                        <p class="text-2xl font-bold text-gray-900" id="monthly-profit">—</p>
+                        <p class="text-sm text-blue-600" id="profit-change">—</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-hover">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
+                            <i class="fas fa-wallet text-white"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">Баланс компании</p>
+                        <p class="text-2xl font-bold text-gray-900" id="company-balance">—</p>
+                        <p class="text-sm text-gray-500">На сегодня</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Графики и статистика -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- График доходов/расходов -->
+            <div class="card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Доходы и расходы</h3>
+                    <select id="finance-period" class="form-select text-sm">
+                        <option value="30">30 дней</option>
+                        <option value="90">3 месяца</option>
+                        <option value="180">6 месяцев</option>
+                    </select>
+                </div>
+                <div class="chart-container">
+                    <canvas id="finance-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Топ менеджеры -->
+            <div class="card">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Топ менеджеры</h3>
+                <div id="top-managers">
+                    <div class="loading-shimmer h-16 rounded mb-3"></div>
+                    <div class="loading-shimmer h-16 rounded mb-3"></div>
+                    <div class="loading-shimmer h-16 rounded"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Заказы и клиенты -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Статистика заказов -->
+            <div class="card">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Заказы</h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Всего заказов</span>
+                        <span class="font-semibold" id="total-orders">—</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Завершенных</span>
+                        <span class="font-semibold text-green-600" id="completed-orders">—</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">За месяц</span>
+                        <span class="font-semibold text-blue-600" id="orders-this-month">—</span>
+                    </div>
+                    <div class="pt-3 border-t">
+                        <a href="{% url 'order_list' %}" class="text-sm text-blue-600 hover:text-blue-800">
+                            Посмотреть все заказы →
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Последние заказы -->
+            <div class="card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Последние заказы</h3>
+                    <a href="{% url 'order_list' %}" class="text-sm text-blue-600 hover:text-blue-800">
+                        Все заказы
+                    </a>
+                </div>
+                <div id="recent-orders">
+                    <div class="loading-shimmer h-12 rounded mb-3"></div>
+                    <div class="loading-shimmer h-12 rounded mb-3"></div>
+                    <div class="loading-shimmer h-12 rounded"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Метрики менеджера -->
+    {% if user.role == 'manager' %}
+    <div id="manager-dashboard">
+        <!-- Статистика менеджера -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div class="card card-hover">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                            <i class="fas fa-clipboard-list text-white"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">Мои заказы</p>
+                        <p class="text-2xl font-bold text-gray-900" id="my-orders">—</p>
+                        <p class="text-sm text-blue-600">За месяц</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-hover">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
+                            <i class="fas fa-ruble-sign text-white"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">Выручка</p>
+                        <p class="text-2xl font-bold text-gray-900" id="my-revenue">—</p>
+                        <p class="text-sm text-green-600">За месяц</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-hover">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
+                            <i class="fas fa-users text-white"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">Мои клиенты</p>
+                        <p class="text-2xl font-bold text-gray-900" id="my-clients">—</p>
+                        <p class="text-sm text-purple-600">За месяц</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card card-hover">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
+                            <i class="fas fa-star text-white"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500">Моя зарплата</p>
+                        <p class="text-2xl font-bold text-gray-900" id="my-salary">—</p>
+                        <p class="text-sm text-yellow-600">За месяц</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Воронка продаж и активные заказы -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Воронка продаж -->
+            <div class="card">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Воронка продаж</h3>
+                <div id="sales-funnel">
+                    <div class="loading-shimmer h-32 rounded"></div>
+                </div>
+            </div>
+
+            <!-- Активные заказы -->
+            <div class="card">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Активные заказы</h3>
+                <div id="active-orders">
+                    <div class="loading-shimmer h-16 rounded mb-3"></div>
+                    <div class="loading-shimmer h-16 rounded mb-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Метрики монтажника -->
+    {% if user.role == 'installer' %}
+    <div id="installer-dashboard">
+        <!-- Расписание на сегодня -->
+        <div class="card mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900">Расписание на сегодня</h3>
+                    <p class="text-sm text-gray-500" id="today-date">—</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm text-gray-500">Маршрут оптимизирован</p>
+                    <p class="text-lg font-semibold text-blue-600" id="route-distance">— км</p>
+                </div>
+            </div>
+            
+            <div id="today-schedule">
+                <div class="loading-shimmer h-20 rounded mb-3"></div>
+                <div class="loading-shimmer h-20 rounded mb-3"></div>
+            </div>
+        </div>
+
+        <!-- Статистика и карта -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Статистика за месяц -->
+            <div class="card">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Сводка за месяц</h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Монтажей выполнено</span>
+                        <span class="font-semibold text-blue-600" id="installations-count">—</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Зарплата</span>
+                        <span class="font-semibold text-green-600" id="installer-salary">—</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Рейтинг</span>
+                        <div class="flex items-center">
+                            <div class="flex text-yellow-400" id="installer-rating">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <span class="ml-2 text-sm text-gray-600">5.0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Карта маршрута -->
+            <div class="card">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Маршрут дня</h3>
+                <div id="route-map" class="h-64 bg-gray-100 rounded flex items-center justify-center">
+                    <div class="text-center">
+                        <i class="fas fa-map-marked-alt text-4xl text-gray-400 mb-2"></i>
+                        <p class="text-gray-500">Карта маршрута</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/pages/dashboard.js' %}"></script>
+<script>
+    // Инициализация дашборда после загрузки DOM
+    document.addEventListener('DOMContentLoaded', function() {
+        initDashboard();
+    });
+</script>
+{% endblock %}
